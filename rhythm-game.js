@@ -29,6 +29,7 @@ export class RhythmGame extends Scene {
 
         // Flags
         this.game_start = 0;
+        this.start_over = false;
         this.a_judge_hit = false;
         this.s_judge_hit = false;
         this.d_judge_hit = false;
@@ -117,9 +118,7 @@ export class RhythmGame extends Scene {
             this.l_judge_hit = true;
             setTimeout(() => { this.l_judge_hit = false; }, 45);
         });
-        this.new_line();
-        this.key_triggered_button("Move (test only)", ["m"], () => this.attached = () => this.camera_move);
-        this.key_triggered_button("Move1 (test only)", ["n"], () => this.attached = () => null);
+
     }
     draw_notes(context, program_state, t) {
         this.time = this.time + 1;
@@ -129,12 +128,13 @@ export class RhythmGame extends Scene {
             this.progess -= 1;
             console.log(this.progess);
         }
+
+        // Judgement line
         var a_judge_transform = Mat4.identity()
             .times(Mat4.translation(-20, 15 + a, 0));
 
         var s_judge_transform = Mat4.identity()
             .times(Mat4.translation(-12, 15 + a, 0));
-
 
         var d_judge_transform = Mat4.identity()
             .times(Mat4.translation(-4, 15 + a, 0));
@@ -148,6 +148,8 @@ export class RhythmGame extends Scene {
         var l_judge_transform = Mat4.identity()
             .times(Mat4.translation(20, 15, 0))
             .times(Mat4.translation(0, a, 0));
+
+        // Notes
         this.shapes.cube.draw(context, program_state, a_judge_transform, this.materials.stage);
         this.shapes.cube.draw(context, program_state, s_judge_transform, this.materials.stage);
         this.shapes.cube.draw(context, program_state, d_judge_transform, this.materials.stage);
@@ -234,32 +236,43 @@ export class RhythmGame extends Scene {
     }
     loading_screen(context, program_state) {
         const t = program_state.animation_time / 1000, dt = program_state.animation_delta_time / 1000;
-        
-        let position = Math.round(t) % 10;
+
+        // Camera
+        let position = Math.round(t / 2) % 10;
         let camera_positions = new Array(10);
-        camera_positions[0] = Mat4.look_at(vec3(-80, 5, 100), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[1] = Mat4.look_at(vec3(-60, 15, 100), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[2] = Mat4.look_at(vec3(-40, 25, 100), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[3] = Mat4.look_at(vec3(-20, 35, 100), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[4] = Mat4.look_at(vec3(0, 45, 100), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[5] = Mat4.look_at(vec3(20, 55, 100), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[6] = Mat4.look_at(vec3(40, 45, 100), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[7] = Mat4.look_at(vec3(60, 35, 100), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[8] = Mat4.look_at(vec3(80, 25, 100), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[9] = Mat4.look_at(vec3(100, 15, 100), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[0] = Mat4.look_at(vec3(-120, 50, 0), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[1] = Mat4.look_at(vec3(-90, 5, 60), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[2] = Mat4.look_at(vec3(-60, 5, 100), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[3] = Mat4.look_at(vec3(-10, 5, 90), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[4] = Mat4.look_at(vec3(30, 5, 80), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[5] = Mat4.look_at(vec3(40, 5, 70), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[6] = Mat4.look_at(vec3(70, 5, 50), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[7] = Mat4.look_at(vec3(90, 5, 30), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[8] = Mat4.look_at(vec3(100, 5, 10), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[9] = Mat4.look_at(vec3(120, 50, 10), vec3(0, 7.5, 0), vec3(0, 50, 0));
         this.camera_move = camera_positions[position];
 
-        if(this.attached == undefined && !context.scratchpad.controls){
+        if(!context.scratchpad.controls && t < 0.01){
             program_state.set_camera(camera_positions[0]);
         }
-        else {
-            let desired = this.attached();
-            if (desired !== null) {
-                program_state.camera_inverse = desired.map((x,i) => Vector.from(program_state.camera_inverse[i]).mix(x, 0.0025)); 
+
+        if (this.camera_move !== null) {
+
+            if (position == 9) {
+                this.start_over = true;
+            }
+            if (position == 0 && this.start_over == true) {
+                this.start_over = false;
+                program_state.camera_inverse = this.camera_move;
+            }
+            else {
+                program_state.camera_inverse = this.camera_move.map(
+                    (x,i) => Vector.from(program_state.camera_inverse[i]).mix(x, 0.01)); 
             }
         }
         program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, .1, 1000);
 
+        // Lighting
         var r = (1 + Math.sin(2 * t + 1)) / 2;
         var g = (1 + Math.sin(3 * t + 2)) / 2;
         var b = (1 + Math.sin(5 * t + 3)) / 2;
