@@ -249,8 +249,8 @@ const Code_Widget = widgets.Code_Widget =
             import( './main-scene.js' )
                 .then(module => {
                     this.build_reader(element, main_scene, additional_scenes, module.defs);
-                    if (!options.hide_navigator)
-                        this.build_navigator(element, main_scene, additional_scenes, module.defs);
+                    // if (!options.hide_navigator)
+                        // this.build_navigator(element, main_scene, additional_scenes, module.defs);
                 })
         }
 
@@ -267,6 +267,7 @@ const Code_Widget = widgets.Code_Widget =
             this.display_code(main_scene);
         }
 
+        /*
         build_navigator(element, main_scene, additional_scenes, definitions) {
             // (Internal helper function)
             const class_list = element.appendChild(document.createElement("table"));
@@ -312,6 +313,7 @@ const Code_Widget = widgets.Code_Widget =
                 }
             }
         }
+        */
 
         display_code(class_to_display) {
             // display_code():  Populate the code textbox.

@@ -80,36 +80,37 @@ export class RhythmGame extends Scene {
 
     make_control_panel() {
         // Draw the scene's buttons, setup their actions and keyboard shortcuts, and monitor live measurements.
-        this.key_triggered_button("START game", ["1"], () => {
+        this.key_triggered_button("PLAY \"Song 1\"", ["1"], () => {
             this.game_start++;
         });
         this.new_line();
-        this.key_triggered_button("Hit red", ["a"], () => {
+        this.new_line();
+        this.key_triggered_button("Hit RED", ["a"], () => {
             this.a_judge_hit = true;
             setTimeout(() => {this.a_judge_hit = false;}, 45);
         });
         this.new_line();
-        this.key_triggered_button("Hit orange", ["s"], () => {
+        this.key_triggered_button("Hit ORANGE", ["s"], () => {
             this.s_judge_hit = true;
             setTimeout(() => {this.s_judge_hit = false;}, 45);
         });
         this.new_line();
-        this.key_triggered_button("Hit yellow", ["d"], () => {
+        this.key_triggered_button("Hit YELLOW", ["d"], () => {
             this.d_judge_hit = true;
             setTimeout(() => {this.d_judge_hit = false;}, 45);
         });
         this.new_line();
-        this.key_triggered_button("Hit green", ["j"], () => {
+        this.key_triggered_button("Hit GREEN", ["j"], () => {
             this.j_judge_hit = true;
             setTimeout(() => {this.j_judge_hit = false;}, 45);
         });
         this.new_line();
-        this.key_triggered_button("Hit blue", ["k"], () => {
+        this.key_triggered_button("Hit BLUE", ["k"], () => {
             this.k_judge_hit = true;
             setTimeout(() => {this.k_judge_hit = false;}, 45);
         });
         this.new_line();
-        this.key_triggered_button("Hit purple", ["l"], () => {
+        this.key_triggered_button("Hit PURPLE", ["l"], () => {
             this.l_judge_hit = true;
             setTimeout(() => {this.l_judge_hit = false;}, 45);
         });
