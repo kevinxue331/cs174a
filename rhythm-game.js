@@ -1,35 +1,20 @@
 import { defs, tiny } from './examples/common.js';
-
+import { beatmap1, beatmap2 } from './beatmaps.js';
 const {
     Vector, Vector3, vec, vec3, vec4, color, hex_color, Shader, Matrix, Mat4, Light, Shape, Material, Scene,
 } = tiny;
 
-class Cube extends Shape {
-    constructor() {
-        super("position", "normal",);
-        // Loop 3 times (for each axis), and inside loop twice (for opposing cube sides):
-        this.arrays.position = Vector3.cast(
-            [-1, -1, -1], [1, -1, -1], [-1, -1, 1], [1, -1, 1], [1, 1, -1], [-1, 1, -1], [1, 1, 1], [-1, 1, 1],
-            [-1, -1, -1], [-1, -1, 1], [-1, 1, -1], [-1, 1, 1], [1, -1, 1], [1, -1, -1], [1, 1, 1], [1, 1, -1],
-            [-1, -1, 1], [1, -1, 1], [-1, 1, 1], [1, 1, 1], [1, -1, -1], [-1, -1, -1], [1, 1, -1], [-1, 1, -1]);
-        this.arrays.normal = Vector3.cast(
-            [0, -1, 0], [0, -1, 0], [0, -1, 0], [0, -1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1, 0],
-            [-1, 0, 0], [-1, 0, 0], [-1, 0, 0], [-1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0], [1, 0, 0],
-            [0, 0, 1], [0, 0, 1], [0, 0, 1], [0, 0, 1], [0, 0, -1], [0, 0, -1], [0, 0, -1], [0, 0, -1]);
-        // Arrange the vertices into a square shape in texture space too:
-        this.indices.push(0, 1, 2, 1, 3, 2, 4, 5, 6, 5, 7, 6, 8, 9, 10, 9, 11, 10, 12, 13,
-            14, 13, 15, 14, 16, 17, 18, 17, 19, 18, 20, 21, 22, 21, 23, 22);
-    }
-}
-
 export class RhythmGame extends Scene {
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////// CLASS VARIABLES ////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     constructor() {
-        // constructor(): Scenes begin by populating initial values like the Shapes and Materials they'll need.
         super();
 
         // Flags
-        this.game_start = 0;
-        this.start_over = false;
         this.a_judge_hit = false;
         this.s_judge_hit = false;
         this.d_judge_hit = false;
@@ -37,12 +22,31 @@ export class RhythmGame extends Scene {
         this.k_judge_hit = false;
         this.l_judge_hit = false;
 
+        this.initial_ls_camera_location = Mat4.look_at(vec3(0, 5, 100), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        this.screen_time = 0;
+        this.game_start = 0;
+        this.start_over = false;
+
+        this.initial_rg_camera_location = Mat4.look_at(vec3(0, -50, 20), vec3(0, 0, 10), vec3(0, 40, 0));
+        this.beatmap = -1;
+        this.progress = 0;
+        this.combo = true; //becomes false whenever a beat is missed, otherwise stays true
+        this.score = 0;
+
+        this.scoreElement = document.getElementById("score");
+        this.scoreNode = document.createTextNode("");
+        this.scoreElement.appendChild(this.scoreNode);
+
+        this.statusElement = document.getElementById("status");
+        this.statusNode = document.createTextNode("");
+        this.statusElement.appendChild(this.statusNode);
+
         // Loading Screen
         this.shapes = {
-            cube: new Cube(),
+            cube: new defs.Cube(),
         }
-
-        // Notes
+        
+        // Rhythm Game
         this.notes = {
             a_judge: new defs.Subdivision_Sphere(4),
             s_judge: new defs.Subdivision_Sphere(4),
@@ -50,6 +54,8 @@ export class RhythmGame extends Scene {
             j_judge: new defs.Subdivision_Sphere(4),
             k_judge: new defs.Subdivision_Sphere(4),
             l_judge: new defs.Subdivision_Sphere(4),
+
+            beat: new defs.Subdivision_Sphere(4),
         };
 
         // Materials
@@ -58,7 +64,9 @@ export class RhythmGame extends Scene {
             stage: new Material(new defs.Phong_Shader(),
                 { ambient: .4, diffusivity: .6, color: hex_color("#FFC5DA") }),
 
-            // Notes
+            // Rhythm Game
+            beat: new Material(new defs.Phong_Shader(),
+                { ambient: 1, diffusivity: 1, specularity: 0, color: hex_color("#FFA382") }),
             a_judge: new Material(new defs.Phong_Shader(),
                 { ambient: 1, diffusivity: 1, color: hex_color("FF595E") }),
             s_judge: new Material(new defs.Phong_Shader(),
@@ -74,172 +82,21 @@ export class RhythmGame extends Scene {
             judge_hit: new Material(new defs.Phong_Shader(),
                 { ambient: 1, diffusivity: 1, color: hex_color("#FFFFFF") }),
         }
-
-        this.initial_ls_camera_location = Mat4.look_at(vec3(0, 5, 100), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        this.initial_rg_camera_location = Mat4.look_at(vec3(0, 20, 30), vec3(0, 0, 0), vec3(0, 40, 0));
-        this.started = false;
-        this.progess = 0;
-        this.time = 0;
     }
 
-    make_control_panel() {
-        // Draw the scene's buttons, setup their actions and keyboard shortcuts, and monitor live measurements.
-        this.key_triggered_button("PLAY \"Song 1\"", ["1"], () => {
-            this.game_start++;
-        });
-        this.new_line();
-        this.new_line();
-        this.key_triggered_button("Hit RED", ["a"], () => {
-            this.a_judge_hit = true;
-            setTimeout(() => { this.a_judge_hit = false; }, 45);
-        });
-        this.new_line();
-        this.key_triggered_button("Hit ORANGE", ["s"], () => {
-            this.s_judge_hit = true;
-            setTimeout(() => { this.s_judge_hit = false; }, 45);
-        });
-        this.new_line();
-        this.key_triggered_button("Hit YELLOW", ["d"], () => {
-            this.d_judge_hit = true;
-            setTimeout(() => { this.d_judge_hit = false; }, 45);
-        });
-        this.new_line();
-        this.key_triggered_button("Hit GREEN", ["j"], () => {
-            this.j_judge_hit = true;
-            setTimeout(() => { this.j_judge_hit = false; }, 45);
-        });
-        this.new_line();
-        this.key_triggered_button("Hit BLUE", ["k"], () => {
-            this.k_judge_hit = true;
-            setTimeout(() => { this.k_judge_hit = false; }, 45);
-        });
-        this.new_line();
-        this.key_triggered_button("Hit PURPLE", ["l"], () => {
-            this.l_judge_hit = true;
-            setTimeout(() => { this.l_judge_hit = false; }, 45);
-        });
-
-    }
-    draw_notes(context, program_state, t) {
-        this.time = this.time + 1;
-        let a = this.progess;
-        if (this.time == 20) {
-            this.time = 0;
-            this.progess -= 1;
-            console.log(this.progess);
-        }
-
-        // Judgement line
-        var a_judge_transform = Mat4.identity()
-            .times(Mat4.translation(-20, 15 + a, 0));
-
-        var s_judge_transform = Mat4.identity()
-            .times(Mat4.translation(-12, 15 + a, 0));
-
-        var d_judge_transform = Mat4.identity()
-            .times(Mat4.translation(-4, 15 + a, 0));
-
-        var j_judge_transform = Mat4.identity()
-            .times(Mat4.translation(4, 15 + a, 0));
-
-        var k_judge_transform = Mat4.identity()
-            .times(Mat4.translation(12, 15 + a, 0));
-
-        var l_judge_transform = Mat4.identity()
-            .times(Mat4.translation(20, 15, 0))
-            .times(Mat4.translation(0, a, 0));
-
-        // Notes
-        this.shapes.cube.draw(context, program_state, a_judge_transform, this.materials.stage);
-        this.shapes.cube.draw(context, program_state, s_judge_transform, this.materials.stage);
-        this.shapes.cube.draw(context, program_state, d_judge_transform, this.materials.stage);
-        this.shapes.cube.draw(context, program_state, j_judge_transform, this.materials.stage);
-        this.shapes.cube.draw(context, program_state, k_judge_transform, this.materials.stage);
-        this.shapes.cube.draw(context, program_state, l_judge_transform, this.materials.stage);
-        var hi = [1, 1, 1, 1, 1, 1];
-       
-        const moveup = (a, shape) => {
-            a_judge_transform = Mat4.translation(0, 5, 0).times(a_judge_transform);
-            s_judge_transform = Mat4.translation(0, 5, 0).times(s_judge_transform);
-            d_judge_transform = Mat4.translation(0, 5, 0).times(d_judge_transform);
-            j_judge_transform = Mat4.translation(0, 5, 0).times(j_judge_transform);
-            k_judge_transform = Mat4.translation(0, 5, 0).times(k_judge_transform);
-            l_judge_transform = Mat4.translation(0, 5, 0).times(l_judge_transform);
-            if (a[0] == 1) this.shapes.cube.draw(context, program_state, a_judge_transform, this.materials.stage);
-            if (a[1] == 1) this.shapes.cube.draw(context, program_state, s_judge_transform, this.materials.stage);
-            if (a[2] == 1) this.shapes.cube.draw(context, program_state, d_judge_transform, this.materials.stage);
-            if (a[3] == 1) this.shapes.cube.draw(context, program_state, j_judge_transform, this.materials.stage);
-            if (a[4] == 1) this.shapes.cube.draw(context, program_state, k_judge_transform, this.materials.stage);
-            if (a[5] == 1) this.shapes.cube.draw(context, program_state, l_judge_transform, this.materials.stage);
-        }
-        moveup(hi);
-        hi = [0, 1, 1, 0, 1, 1];
-        moveup(hi);
-        hi = [0, 0, 1, 0, 1, 1];
-        moveup(hi);
-        hi = [0, 0, 0, 0, 1, 1];
-        moveup(hi);
-        hi = [0, 0, 0, 0, 0, 1];
-        moveup(hi);
-        hi = [0, 0, 0, 0, 1, 0];
-        moveup(hi);
-        hi = [0, 0, 0, 1, 0, 0];
-        moveup(hi);
-        hi = [0, 0, 1, 0, 0, 0];
-        moveup(hi);
-        hi = [0, 1, 0, 0, 0, 0];
-        moveup(hi);
-        hi = [1, 0, 0, 0, 0, 0];
-        moveup(hi);
-        hi = [0, 0, 0, 0, 0, 0];
-        moveup(hi);
-        hi = [0, 0, 0, 0, 0, 0];
-        moveup(hi);
-        hi = [0, 0, 0, 0, 0, 0];
-        moveup(hi);
-        hi = [0, 0, 0, 0, 0, 0];
-        moveup(hi);
-        hi = [0, 0, 0, 0, 0, 1];
-        moveup(hi);
-        hi = [0, 0, 0, 1, 0, 1];
-        moveup(hi);
-        hi = [0, 0, 1, 0, 1, 0];
-        moveup(hi);
-        hi = [0, 1, 0, 1, 0, 0];
-        moveup(hi);
-        hi = [1, 0, 1, 0, 0, 0];
-        moveup(hi);
-        hi = [0, 1, 0, 0, 0, 0];
-        moveup(hi);
-        hi = [1, 0, 0, 0, 0, 0];
-        moveup(hi);
-        hi = [0, 0, 0, 0, 0, 0];
-        moveup(hi);
-        hi = [1, 0, 0, 0, 0, 0];
-        moveup(hi);
-        hi = [0, 1, 0, 0, 0, 0];
-        moveup(hi);
-        hi = [1, 0, 1, 0, 0, 0];
-        moveup(hi);
-        hi = [0, 1, 0, 1, 0, 0];
-        moveup(hi);
-        hi = [0, 0, 1, 0, 1, 0];
-        moveup(hi);
-        hi = [0, 0, 0, 1, 0, 1];
-        moveup(hi);
-        hi = [0, 0, 0, 0, 1, 0];
-        moveup(hi);
-        hi = [0, 0, 0, 0, 0, 1];
-        moveup(hi);
-
-
-    }
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////// LOADING SCREEN /////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /* Loading screen animation. Just need to add more models.
+        Can comment out CAMERA MOVEMENT section for time being to see static scene. */
     loading_screen(context, program_state) {
         const t = program_state.animation_time / 1000, dt = program_state.animation_delta_time / 1000;
 
-        // Camera
-        let position = Math.round(t / 2) % 10;
-        let camera_positions = new Array(10);
+        // Camera Movement
+        let position = Math.round(this.screen_time / 2) % 20;
+        let camera_positions = new Array(20);
         camera_positions[0] = Mat4.look_at(vec3(-120, 50, 0), vec3(0, 7.5, 0), vec3(0, 50, 0));
         camera_positions[1] = Mat4.look_at(vec3(-90, 5, 60), vec3(0, 7.5, 0), vec3(0, 50, 0));
         camera_positions[2] = Mat4.look_at(vec3(-60, 5, 100), vec3(0, 7.5, 0), vec3(0, 50, 0));
@@ -250,26 +107,28 @@ export class RhythmGame extends Scene {
         camera_positions[7] = Mat4.look_at(vec3(90, 5, 30), vec3(0, 7.5, 0), vec3(0, 50, 0));
         camera_positions[8] = Mat4.look_at(vec3(100, 5, 10), vec3(0, 7.5, 0), vec3(0, 50, 0));
         camera_positions[9] = Mat4.look_at(vec3(120, 50, 10), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        this.camera_move = camera_positions[position];
 
-        if(!context.scratchpad.controls && t < 0.01){
+        camera_positions[10] = Mat4.look_at(vec3(100, 5, 10), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[11] = Mat4.look_at(vec3(90, 5, 30), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[12] = Mat4.look_at(vec3(70, 5, 50), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[13] = Mat4.look_at(vec3(40, 5, 70), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[14] = Mat4.look_at(vec3(30, 5, 80), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[15] = Mat4.look_at(vec3(-10, 5, 90), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[16] = Mat4.look_at(vec3(-60, 5, 100), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[17] = Mat4.look_at(vec3(-90, 5, 60), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[18] = Mat4.look_at(vec3(-120, 50, 0), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[19] = Mat4.look_at(vec3(-120, 50, 0), vec3(0, 7.5, 0), vec3(0, 50, 0));
+
+        this.camera_move = camera_positions[position];
+        if(!context.scratchpad.controls && this.screen_time < 0.01){
             program_state.set_camera(camera_positions[0]);
         }
-
-        if (this.camera_move !== null) {
-
-            if (position == 9) {
-                this.start_over = true;
-            }
-            if (position == 0 && this.start_over == true) {
-                this.start_over = false;
-                program_state.camera_inverse = this.camera_move;
-            }
-            else {
-                program_state.camera_inverse = this.camera_move.map(
-                    (x,i) => Vector.from(program_state.camera_inverse[i]).mix(x, 0.01)); 
-            }
+        else if (this.camera_move !== null) {
+            program_state.camera_inverse = this.camera_move.map(
+                (x,i) => Vector.from(program_state.camera_inverse[i]).mix(x, 0.01)); 
         }
+
+        this.screen_time += dt;
         program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, .1, 1000);
 
         // Lighting
@@ -290,12 +149,16 @@ export class RhythmGame extends Scene {
             .times(Mat4.translation(0, -8, -10))
             .times(Mat4.scale(5, 10, 5));
         this.shapes.cube.draw(context, program_state, wow_transform, this.materials.stage);
-        
-        
-        
     }
 
-    rhythm_game(context, program_state) {
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////// GAME ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /* Code for rhythm game -- needs to implement collision detection. 
+        Make sure to change this.combo and this.score when hits/misses are detected. */
+    rhythm_game(context, program_state) { // Sets up scene
         if (!context.scratchpad.controls) {
             program_state.set_camera(this.initial_rg_camera_location);
         }
@@ -364,19 +227,195 @@ export class RhythmGame extends Scene {
         } else {
             this.notes.l_judge.draw(context, program_state, l_judge_transform, this.materials.judge_hit);
         }
-        if (!this.started) {
-            this.draw_notes(context, program_state, 5);
+        
+        this.draw_notes(context, program_state);
+    }
 
+    draw_notes(context, program_state) { // Draws moving notes
+        let a = this.progress;
+        this.progress -= 0.5;
+        
+        if (this.progress % 25 == 0) { // for testing
+            this.score++;
+            this.combo ^= 1;
+        }
+
+        /*
+        if (this.progress == -400) { // for testing -- so don't have to wait long LOL
+            this.progress = 0;
+            this.score = 0;
+
+            this.screen_time = 0;
+            this.game_start = 0;
+        }
+        else*/ if (this.progress == -650) { 
+            this.progress = 0;
+            this.score = 0;
+
+            this.screen_time = 0;
+            this.game_start = 0;
+        }
+
+        // Judgement line
+        var a_transform = Mat4.identity().times(Mat4.translation(-20, 15 + a, 0));
+
+        var s_transform = Mat4.identity().times(Mat4.translation(-12, 15 + a, 0));
+
+        var d_transform = Mat4.identity().times(Mat4.translation(-4, 15 + a, 0));
+
+        var j_transform = Mat4.identity().times(Mat4.translation(4, 15 + a, 0));
+
+        var k_transform = Mat4.identity().times(Mat4.translation(12, 15 + a, 0));
+
+        var l_transform = Mat4.identity().times(Mat4.translation(20, 15 + a, 0));
+
+        // Notes
+        const moveup = (a) => {
+            a_transform = Mat4.translation(0, 5, 0).times(a_transform);
+            s_transform = Mat4.translation(0, 5, 0).times(s_transform);
+            d_transform = Mat4.translation(0, 5, 0).times(d_transform);
+            j_transform = Mat4.translation(0, 5, 0).times(j_transform);
+            k_transform = Mat4.translation(0, 5, 0).times(k_transform);
+            l_transform = Mat4.translation(0, 5, 0).times(l_transform);
+            if (a[0] == 1) this.notes.beat.draw(context, program_state, a_transform, this.materials.beat);
+            if (a[1] == 1) this.notes.beat.draw(context, program_state, s_transform, this.materials.beat);
+            if (a[2] == 1) this.notes.beat.draw(context, program_state, d_transform, this.materials.beat);
+            if (a[3] == 1) this.notes.beat.draw(context, program_state, j_transform, this.materials.beat);
+            if (a[4] == 1) this.notes.beat.draw(context, program_state, k_transform, this.materials.beat);
+            if (a[5] == 1) this.notes.beat.draw(context, program_state, l_transform, this.materials.beat);
+        }
+        
+        // Load correct beatmap
+        let map;
+        if (this.beatmap == 1) {
+            map = beatmap1;
+        } else {
+            map = beatmap2;
+        }
+
+        let tmp = [0, 0, 0, 0, 0, 0];
+        for (let i = 0; i < map.length; i++) {
+            tmp = map[i];
+            moveup(tmp);
         }
     }
 
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////// DISPLAY ////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /* A bunch of stuff to set up index.html -- shouldn't need more major edits */
     display(context, program_state) {
-
+        
         if (this.game_start > 0) {
             this.rhythm_game(context, program_state);
+
+            var source = document.getElementById("audio");
+            var pause = source.paused;
+            console.log(pause);
+            if (pause) {
+                if (this.beatmap == 1) {
+                    source.src = "./assets/klee.mp3";
+                    audio.load();
+                }
+                else if (this.beatmap == 2) {
+                    source.src = "./assets/sekai.mp3";
+                    audio.load();
+                }
+            }
+            source.play(); 
+
+            document.getElementById("scoreboard").style.visibility="visible";
+            this.scoreNode.nodeValue = this.score.toFixed(0);
+            document.getElementById("avatar").style.visibility="visible";
+            if (this.combo) {
+                this.statusNode.nodeValue = "COMBO";
+                document.getElementById("combo-avatar").style.visibility="visible";
+                document.getElementById("miss-avatar").style.visibility="hidden"; 
+            }  
+            else {
+                this.statusNode.nodeValue = "MISS...";
+                document.getElementById("combo-avatar").style.visibility="hidden"; 
+                document.getElementById("miss-avatar").style.visibility="visible"; 
+            }
+            
         } else {
             this.loading_screen(context, program_state);
-        }
 
+            document.getElementById("audio").pause(); 
+            document.getElementById("audio").currentTime = 0;
+
+            document.getElementById("scoreboard").style.visibility="hidden"; 
+            document.getElementById("avatar").style.visibility="hidden";
+            document.getElementById("combo-avatar").style.visibility="hidden"; 
+            document.getElementById("miss-avatar").style.visibility="hidden"; 
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////// CONTROLS ///////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /* Sets up controls -- shouldn't need any more edits */
+    make_control_panel() {
+        // Draw the scene's buttons, setup their actions and keyboard shortcuts, and monitor live measurements.
+        this.live_string(box => {box.textContent = "Select one of the tracks below to play. \
+                                                        Once the song ends, you will be returned to this loading screen,\
+                                                        and then you can play again."});
+        this.new_line();
+        this.new_line();
+        this.live_string(box => {box.textContent = "Hitting a beat earns you 10 points, while missing one deducts 5!"});
+        this.live_string(box => {box.textContent = "====================================================================="});
+        this.new_line();
+        this.new_line();
+        
+
+        this.live_string(box => {box.textContent = "Track Options"});
+        this.new_line();
+        this.key_triggered_button("PLAY \"Song 1\"", ["1"], () => {
+            this.beatmap = 1;
+            this.game_start++;
+        });
+        this.new_line();
+        this.key_triggered_button("PLAY \"Song 2\"", ["2"], () => {
+            this.beatmap = 2;
+            this.game_start++;
+        });
+        this.new_line();
+        this.new_line();
+
+        this.live_string(box => {box.textContent = "Controls"});
+        this.new_line();
+        this.key_triggered_button("Hit RED", ["a"], () => {
+            this.a_judge_hit = true;
+            setTimeout(() => { this.a_judge_hit = false; }, 45);
+        });
+        this.new_line();
+        this.key_triggered_button("Hit ORANGE", ["s"], () => {
+            this.s_judge_hit = true;
+            setTimeout(() => { this.s_judge_hit = false; }, 45);
+        });
+        this.new_line();
+        this.key_triggered_button("Hit YELLOW", ["d"], () => {
+            this.d_judge_hit = true;
+            setTimeout(() => { this.d_judge_hit = false; }, 45);
+        });
+        this.new_line();
+        this.key_triggered_button("Hit GREEN", ["j"], () => {
+            this.j_judge_hit = true;
+            setTimeout(() => { this.j_judge_hit = false; }, 45);
+        });
+        this.new_line();
+        this.key_triggered_button("Hit BLUE", ["k"], () => {
+            this.k_judge_hit = true;
+            setTimeout(() => { this.k_judge_hit = false; }, 45);
+        });
+        this.new_line();
+        this.key_triggered_button("Hit PURPLE", ["l"], () => {
+            this.l_judge_hit = true;
+            setTimeout(() => { this.l_judge_hit = false; }, 45);
+        });
     }
 }
