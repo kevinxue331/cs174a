@@ -4,6 +4,26 @@ const {
     Vector, Vector3, vec, vec3, vec4, color, hex_color, Shader, Matrix, Mat4, Light, Shape, Material, Scene,
 } = tiny;
 
+import {Color_Phong_Shader, Shadow_Textured_Phong_Shader,
+    Depth_Texture_Shader_2D, Buffered_Texture, LIGHT_DEPTH_TEX_SIZE} from './shadow-demo-shaders.js'
+
+// 2D shape, to display the texture buffer
+const Square =
+    class Square extends tiny.Vertex_Buffer {
+        constructor() {
+            super("position", "normal", "texture_coord");
+            this.arrays.position = [
+                vec3(0, 0, 0), vec3(1, 0, 0), vec3(0, 1, 0), vec3(1, 1, 0), vec3(1, 0, 0), vec3(0, 1, 0)
+            ];
+            this.arrays.normal = [
+                vec3(0, 0, 1), vec3(0, 0, 1), vec3(0, 0, 1), vec3(0, 0, 1), vec3(0, 0, 1), vec3(0, 0, 1),
+            ];
+            this.arrays.texture_coord = [
+                vec(0, 0), vec(1, 0), vec(0, 1), vec(1, 1), vec(1, 0), vec(0, 1)
+            ]
+        }
+    }
+
 export class RhythmGame extends Scene {
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -41,10 +61,36 @@ export class RhythmGame extends Scene {
         this.statusNode = document.createTextNode("");
         this.statusElement.appendChild(this.statusNode);
 
+        this.collide = Array.from({ length: 80 }, () => new Array(6).fill(false)); // all beatmaps have 80 lines, 5 notes/line
+        this.range = 0.1;
+
         // Loading Screen
+        this.screen_time = 0;
         this.shapes = {
-            cube: new defs.Cube(),
-        }
+            "sphere": new defs.Subdivision_Sphere(6),
+            "cube": new defs.Cube(),
+            "square_2d": new Square(),
+        };
+
+        this.floor = new Material(new Shadow_Textured_Phong_Shader(1), {
+            color: color(1, 1, 1, 1), ambient: .3, diffusivity: 0.6, specularity: 0.4, smoothness: 64,
+            color_texture: null,
+            light_depth_texture: null
+        })
+        
+        this.pure = new Material(new Color_Phong_Shader(), { // For the first pass
+        })
+
+        this.light_src = new Material(new defs.Phong_Shader(), {
+            color: color(1, 1, 1, 1), ambient: 1, diffusivity: 0, specularity: 0
+        });
+
+        this.depth_tex =  new Material(new Depth_Texture_Shader_2D(), {
+            color: color(0, 0, .0, 1),
+            ambient: 1, diffusivity: 0, specularity: 0, texture: null
+        });
+
+        this.init_ok = false;
         
         // Rhythm Game
         this.notes = {
@@ -91,33 +137,160 @@ export class RhythmGame extends Scene {
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /* Loading screen animation. Just need to add more models.
         Can comment out CAMERA MOVEMENT section for time being to see static scene. */
+
+    texture_buffer_init(gl) {
+        // Depth Texture
+        this.lightDepthTexture = gl.createTexture();
+        // Bind it to TinyGraphics
+        this.light_depth_texture = new Buffered_Texture(this.lightDepthTexture);
+        this.floor.light_depth_texture = this.light_depth_texture
+
+        this.lightDepthTextureSize = LIGHT_DEPTH_TEX_SIZE;
+        gl.bindTexture(gl.TEXTURE_2D, this.lightDepthTexture);
+        gl.texImage2D(
+            gl.TEXTURE_2D,      // target
+            0,                  // mip level
+            gl.DEPTH_COMPONENT, // internal format
+            this.lightDepthTextureSize,   // width
+            this.lightDepthTextureSize,   // height
+            0,                  // border
+            gl.DEPTH_COMPONENT, // format
+            gl.UNSIGNED_INT,    // type
+            null);              // data
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+        // Depth Texture Buffer
+        this.lightDepthFramebuffer = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.lightDepthFramebuffer);
+        gl.framebufferTexture2D(
+            gl.FRAMEBUFFER,       // target
+            gl.DEPTH_ATTACHMENT,  // attachment point
+            gl.TEXTURE_2D,        // texture target
+            this.lightDepthTexture,         // texture
+            0);                   // mip level
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+        // create a color texture of the same size as the depth texture
+        // see article why this is needed_
+        this.unusedTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.unusedTexture);
+        gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.RGBA,
+            this.lightDepthTextureSize,
+            this.lightDepthTextureSize,
+            0,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            null,
+        );
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        // attach it to the framebuffer
+        gl.framebufferTexture2D(
+            gl.FRAMEBUFFER,        // target
+            gl.COLOR_ATTACHMENT0,  // attachment point
+            gl.TEXTURE_2D,         // texture target
+            this.unusedTexture,         // texture
+            0);                    // mip level
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+
+    render_scene(context, program_state, shadow_pass, draw_light_source=false, draw_shadow=false) {
+        let light_position = this.light_position;
+        let light_color = this.light_color;
+        const t = program_state.animation_time;
+        program_state.draw_shadow = draw_shadow;
+
+        if (draw_light_source && shadow_pass) {
+            this.shapes.sphere.draw(context, program_state,
+                Mat4.translation(light_position[0], light_position[1], light_position[2]).times(Mat4.scale(.5,.5,.5)),
+                this.light_src.override({color: light_color}));
+        }
+
+        // DRAW MODELS /////////////////////////////////////////////////////////////////
+        let model_trans_ball_0 = Mat4.translation(0, 1, 0);
+        let model_trans_floor = Mat4.scale(16, 0.1, 10);
+        let model_trans_wall_1 = Mat4.translation(-16, 0.5 - 0.1, 0).times(Mat4.scale(0.1, 0.5, 10));
+        let model_trans_wall_2 = Mat4.translation(+16, 0.5 - 0.1, 0).times(Mat4.scale(0.1, 0.5, 10));
+        let model_trans_wall_3 = Mat4.translation(0, 0.5 - 0.1, -10).times(Mat4.scale(16, 0.5, 0.33));
+        this.shapes.cube.draw(context, program_state, model_trans_floor, shadow_pass? this.floor : this.pure);
+        this.shapes.cube.draw(context, program_state, model_trans_wall_1, shadow_pass? this.floor : this.pure);
+        this.shapes.cube.draw(context, program_state, model_trans_wall_2, shadow_pass? this.floor : this.pure);
+        this.shapes.cube.draw(context, program_state, model_trans_wall_3, shadow_pass? this.floor : this.pure);
+        this.shapes.sphere.draw(context, program_state, model_trans_ball_0, shadow_pass? this.floor : this.pure);
+    }
+
+    render_scene(context, program_state, shadow_pass, draw_light_source=false, draw_shadow=false) {
+        let light_position = this.light_position;
+        let light_color = this.light_color;
+        const t = program_state.animation_time;
+        program_state.draw_shadow = draw_shadow;
+
+        if (draw_light_source && shadow_pass) {
+            this.shapes.sphere.draw(context, program_state,
+                Mat4.translation(light_position[0], light_position[1], light_position[2]).times(Mat4.scale(.5,.5,.5)),
+                this.light_src.override({color: light_color}));
+        }
+
+        // DRAW MODELS HERE !!!! /////////////////////////////////////////////////////////////////
+        let model_trans_ball_0 = Mat4.translation(0, 1, 0);
+        let model_trans_floor = Mat4.scale(16, 0.1, 10);
+        let model_trans_wall_1 = Mat4.translation(-16, 0.5 - 0.1, 0).times(Mat4.scale(0.1, 0.5, 10));
+        let model_trans_wall_2 = Mat4.translation(+16, 0.5 - 0.1, 0).times(Mat4.scale(0.1, 0.5, 10));
+        let model_trans_wall_3 = Mat4.translation(0, 0.5 - 0.1, -10).times(Mat4.scale(16, 0.5, 0.33));
+        this.shapes.cube.draw(context, program_state, model_trans_floor, shadow_pass? this.floor : this.pure);
+        this.shapes.cube.draw(context, program_state, model_trans_wall_1, shadow_pass? this.floor : this.pure);
+        this.shapes.cube.draw(context, program_state, model_trans_wall_2, shadow_pass? this.floor : this.pure);
+        this.shapes.cube.draw(context, program_state, model_trans_wall_3, shadow_pass? this.floor : this.pure);
+        this.shapes.sphere.draw(context, program_state, model_trans_ball_0, shadow_pass? this.floor : this.pure);
+    }
+
     loading_screen(context, program_state) {
-        const t = program_state.animation_time / 1000, dt = program_state.animation_delta_time / 1000;
+        const t = program_state.animation_time;
+        const gl = context.context;
 
+        if (!this.init_ok) {
+            const ext = gl.getExtension('WEBGL_depth_texture');
+            if (!ext) {
+                return alert('need WEBGL_depth_texture');  // eslint-disable-line
+            }
+            this.texture_buffer_init(gl);
+            this.init_ok = true;
+        }
+        
         // Camera Movement
-        let position = Math.round(this.screen_time / 2) % 20;
+        const dt = program_state.animation_delta_time / 1000;
+        // Camera Movement
+        let position = Math.round(this.screen_time) % 20;
         let camera_positions = new Array(20);
-        camera_positions[0] = Mat4.look_at(vec3(-120, 50, 0), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[1] = Mat4.look_at(vec3(-90, 5, 60), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[2] = Mat4.look_at(vec3(-60, 5, 100), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[3] = Mat4.look_at(vec3(-10, 5, 90), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[4] = Mat4.look_at(vec3(30, 5, 80), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[5] = Mat4.look_at(vec3(40, 5, 70), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[6] = Mat4.look_at(vec3(70, 5, 50), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[7] = Mat4.look_at(vec3(90, 5, 30), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[8] = Mat4.look_at(vec3(100, 5, 10), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[9] = Mat4.look_at(vec3(120, 50, 10), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[0] = Mat4.look_at(vec3(-25, 10, 25), vec3(0, 2, 0), vec3(0, 1, 0));
+        camera_positions[1] = Mat4.look_at(vec3(-20, 10, 22), vec3(0, 2, 0), vec3(0, 1, 0));
+        camera_positions[2] = Mat4.look_at(vec3(-15, 9, 20), vec3(0, 2, 0), vec3(0, 1, 0));
+        camera_positions[3] = Mat4.look_at(vec3(-12, 9, 20), vec3(0, 2, 0), vec3(0, 1, 0));
+        camera_positions[4] = Mat4.look_at(vec3(-9, 8, 20), vec3(0, 2, 0), vec3(0, 1, 0));
+        camera_positions[5] = Mat4.look_at(vec3(-6, 8, 20), vec3(0, 2, 0), vec3(0, 1, 0));
+        camera_positions[6] = Mat4.look_at(vec3(-3, 7, 20), vec3(0, 2, 0), vec3(0, 1, 0));
+        camera_positions[7] = Mat4.look_at(vec3(0, 7, 20), vec3(0, 2, 0), vec3(0, 1, 0));
+        camera_positions[8] = Mat4.look_at(vec3(4, 6, 20), vec3(0, 2, 0), vec3(0, 1, 0));
+        camera_positions[9] = Mat4.look_at(vec3(8, 6, 20), vec3(0, 2, 0), vec3(0, 1, 0));
 
-        camera_positions[10] = Mat4.look_at(vec3(100, 5, 10), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[11] = Mat4.look_at(vec3(90, 5, 30), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[12] = Mat4.look_at(vec3(70, 5, 50), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[13] = Mat4.look_at(vec3(40, 5, 70), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[14] = Mat4.look_at(vec3(30, 5, 80), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[15] = Mat4.look_at(vec3(-10, 5, 90), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[16] = Mat4.look_at(vec3(-60, 5, 100), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[17] = Mat4.look_at(vec3(-90, 5, 60), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[18] = Mat4.look_at(vec3(-120, 50, 0), vec3(0, 7.5, 0), vec3(0, 50, 0));
-        camera_positions[19] = Mat4.look_at(vec3(-120, 50, 0), vec3(0, 7.5, 0), vec3(0, 50, 0));
+        camera_positions[10] = Mat4.look_at(vec3(6, 6, 20), vec3(0, 2, 0), vec3(0, 1, 0));
+        camera_positions[11] = Mat4.look_at(vec3(3, 6, 20), vec3(0, 2, 0), vec3(0, 1, 0));
+        camera_positions[12] = Mat4.look_at(vec3(0, 7, 20), vec3(0, 2, 0), vec3(0, 1, 0));
+        camera_positions[13] = Mat4.look_at(vec3(-3, 7, 20), vec3(0, 2, 0), vec3(0, 1, 0));
+        camera_positions[14] = Mat4.look_at(vec3(-6, 8, 20), vec3(0, 2, 0), vec3(0, 1, 0));
+        camera_positions[15] = Mat4.look_at(vec3(-9, 8, 20), vec3(0, 2, 0), vec3(0, 1, 0));
+        camera_positions[16] = Mat4.look_at(vec3(-12, 9, 20), vec3(0, 2, 0), vec3(0, 1, 0));
+        camera_positions[17] = Mat4.look_at(vec3(-15, 9, 20), vec3(0, 2, 0), vec3(0, 1, 0));
+        camera_positions[18] = Mat4.look_at(vec3(-20, 10, 22), vec3(0, 2, 0), vec3(0, 1, 0));
+        camera_positions[19] = Mat4.look_at(vec3(-25, 10, 25), vec3(0, 2, 0), vec3(0, 1, 0));
 
         this.camera_move = camera_positions[position];
         if(!context.scratchpad.controls && this.screen_time < 0.01){
@@ -125,30 +298,42 @@ export class RhythmGame extends Scene {
         }
         else if (this.camera_move !== null) {
             program_state.camera_inverse = this.camera_move.map(
-                (x,i) => Vector.from(program_state.camera_inverse[i]).mix(x, 0.01)); 
+                (x,i) => Vector.from(program_state.camera_inverse[i]).mix(x, 0.07)); 
         }
-
         this.screen_time += dt;
-        program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, .1, 1000);
 
         // Lighting
-        var r = (1 + Math.sin(2 * t + 1)) / 2;
-        var g = (1 + Math.sin(3 * t + 2)) / 2;
-        var b = (1 + Math.sin(5 * t + 3)) / 2;
+        this.light_position = Mat4.rotation(t / 1500, 0, 1, 0).times(vec4(6, 8, 0, 1));
+        this.light_color = color( 0.667 + Math.sin(t/500) / 3, 0.667 + Math.sin(t/1500) / 3, 0.667 + Math.sin(t/3500) / 3, 1 );
+        this.light_view_target = vec4(0, 0, 0, 1);
+        this.light_field_of_view = 130 * Math.PI / 180; // 130 degree
+        program_state.lights = [new Light(this.light_position, this.light_color, 1000)];
 
-        let light_color = color(r, g, b, 1);
-        const light_position = vec4(0, 10, 0, 1);
-        program_state.lights = [new Light(light_position, light_color, 50000)];
+        // Step 1: set the perspective and camera to the POV of light
+        const light_view_mat = Mat4.look_at(
+            vec3(this.light_position[0], this.light_position[1], this.light_position[2]),
+            vec3(this.light_view_target[0], this.light_view_target[1], this.light_view_target[2]),
+            vec3(0, 1, 0), // assume the light to target will have a up dir of +y, maybe need to change according to your case
+        );
+        const light_proj_mat = Mat4.perspective(this.light_field_of_view, 1, 0.5, 500);
+        // Bind the Depth Texture Buffer
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.lightDepthFramebuffer);
+        gl.viewport(0, 0, this.lightDepthTextureSize, this.lightDepthTextureSize);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        // Prepare uniforms
+        program_state.light_view_mat = light_view_mat;
+        program_state.light_proj_mat = light_proj_mat;
+        program_state.light_tex_mat = light_proj_mat;
+        program_state.view_mat = light_view_mat;
+        program_state.projection_transform = light_proj_mat;
+        this.render_scene(context, program_state, false,false, false);
 
-        let stage_transform = Mat4.identity()
-            .times(Mat4.translation(0, -20, -10))
-            .times(Mat4.scale(32, 2, 16));
-        this.shapes.cube.draw(context, program_state, stage_transform, this.materials.stage);
-
-        let wow_transform = Mat4.identity()
-            .times(Mat4.translation(0, -8, -10))
-            .times(Mat4.scale(5, 10, 5));
-        this.shapes.cube.draw(context, program_state, wow_transform, this.materials.stage);
+        // Step 2: unbind, draw to the canvas
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+        program_state.view_mat = program_state.camera_inverse;
+        program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, 0.5, 500);
+        this.render_scene(context, program_state, true,true, true);        
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -270,19 +455,63 @@ export class RhythmGame extends Scene {
         var l_transform = Mat4.identity().times(Mat4.translation(20, 15 + a, 0));
 
         // Notes
-        const moveup = (a) => {
+        const moveup = (a, line) => {
+            let range =  -15 * (line + 1) - this.range;
+            console.log(range);
             a_transform = Mat4.translation(0, 5, 0).times(a_transform);
             s_transform = Mat4.translation(0, 5, 0).times(s_transform);
             d_transform = Mat4.translation(0, 5, 0).times(d_transform);
             j_transform = Mat4.translation(0, 5, 0).times(j_transform);
             k_transform = Mat4.translation(0, 5, 0).times(k_transform);
             l_transform = Mat4.translation(0, 5, 0).times(l_transform);
-            if (a[0] == 1) this.notes.beat.draw(context, program_state, a_transform, this.materials.beat);
-            if (a[1] == 1) this.notes.beat.draw(context, program_state, s_transform, this.materials.beat);
-            if (a[2] == 1) this.notes.beat.draw(context, program_state, d_transform, this.materials.beat);
-            if (a[3] == 1) this.notes.beat.draw(context, program_state, j_transform, this.materials.beat);
-            if (a[4] == 1) this.notes.beat.draw(context, program_state, k_transform, this.materials.beat);
-            if (a[5] == 1) this.notes.beat.draw(context, program_state, l_transform, this.materials.beat);
+            if (a[0] == 1) {
+                if (a_transform[1][3] < range) { // y < -15.1 
+                    this.collide[line][0] = true;
+                }
+                if (!this.collide[line][0]) {
+                    this.notes.beat.draw(context, program_state, a_transform, this.materials.beat);
+                }
+            }
+            if (a[1] == 1) {
+                if (s_transform[1][3] < range) { // y < -15.1 
+                    this.collide[line][1] = true;
+                }
+                if (!this.collide[line][1]) {
+                    this.notes.beat.draw(context, program_state, s_transform, this.materials.beat);
+                }
+            }
+            if (a[2] == 1) {
+                if (d_transform[1][3] < range) { // y < -15.1 
+                    this.collide[line][2] = true;
+                }
+                if (!this.collide[line][2]) {
+                    this.notes.beat.draw(context, program_state, d_transform, this.materials.beat);
+                }
+            }
+            if (a[3] == 1) {
+                if (j_transform[1][3] < range) { // y < -15.1 
+                    this.collide[line][3] = true;
+                }
+                if (!this.collide[line][3]) {
+                    this.notes.beat.draw(context, program_state, j_transform, this.materials.beat);
+                }
+            }
+            if (a[4] == 1) {
+                if (k_transform[1][3] < range) { // y < -15.1 
+                    this.collide[line][4] = true;
+                }
+                if (!this.collide[line][4]) {
+                    this.notes.beat.draw(context, program_state, k_transform, this.materials.beat);
+                }
+            }
+            if (a[5] == 1) {
+                if (l_transform[1][3] < range) { // y < -15.1 
+                    this.collide[line][5] = true;
+                }
+                if (!this.collide[line][5]) {
+                    this.notes.beat.draw(context, program_state, l_transform, this.materials.beat);
+                }
+            }
         }
         
         // Load correct beatmap
@@ -296,7 +525,7 @@ export class RhythmGame extends Scene {
         let tmp = [0, 0, 0, 0, 0, 0];
         for (let i = 0; i < map.length; i++) {
             tmp = map[i];
-            moveup(tmp);
+            moveup(tmp, i);
         }
     }
 
