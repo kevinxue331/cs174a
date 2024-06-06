@@ -76,6 +76,7 @@ export class RhythmGame extends Scene {
             "sphere": new defs.Subdivision_Sphere(6),
             "cube": new defs.Cube(),
             "square_2d": new Square(),
+            a: new defs.Rounded_Capped_Cylinder(4, 10),
         };
 
         this.floor = new Material(new Shadow_Textured_Phong_Shader(1), {
@@ -108,6 +109,7 @@ export class RhythmGame extends Scene {
             l_judge: new defs.Subdivision_Sphere(4),
 
             beat: new defs.Subdivision_Sphere(4),
+            a: new defs.Rounded_Capped_Cylinder(4, 10),
         };
 
         // Materials
@@ -250,6 +252,7 @@ export class RhythmGame extends Scene {
         this.shapes.cube.draw(context, program_state, model_trans_wall_2, shadow_pass? this.floor : this.pure);
         this.shapes.cube.draw(context, program_state, model_trans_wall_3, shadow_pass? this.floor : this.pure);
         this.shapes.sphere.draw(context, program_state, model_trans_ball_0, shadow_pass? this.floor : this.pure);
+        
     }
 
     render_scene(context, program_state, shadow_pass, draw_light_source=false, draw_shadow=false) {
@@ -566,6 +569,7 @@ export class RhythmGame extends Scene {
                 }
                 
                 if (!this.collide[line][0]) {
+                    if(a_transform[1][3] > -15)
                     this.notes.beat.draw(context, program_state, a_transform, this.materials.beat);
                     //console.log(a_transform);
                     //console.log(a_judge_transform);
@@ -582,6 +586,7 @@ export class RhythmGame extends Scene {
                     this.collide[line][1] = true;
                 }
                 if (!this.collide[line][1]) {
+                    if(s_transform[1][3] > -15)
                     this.notes.beat.draw(context, program_state, s_transform, this.materials.beat);
                     if(s_transform[1][3]==-10){
                         this.sNote = true;
@@ -594,6 +599,7 @@ export class RhythmGame extends Scene {
                     this.collide[line][2] = true;
                 }
                 if (!this.collide[line][2]) {
+                    if(d_transform[1][3] > -15)
                     this.notes.beat.draw(context, program_state, d_transform, this.materials.beat);
                     if(d_transform[1][3]==-10){
                         this.dNote = true;
@@ -606,6 +612,7 @@ export class RhythmGame extends Scene {
                     this.collide[line][3] = true;
                 }
                 if (!this.collide[line][3]) {
+                    if(j_transform[1][3] > -15)
                     this.notes.beat.draw(context, program_state, j_transform, this.materials.beat);
                     if(j_transform[1][3]==-10){
                         this.jNote = true;
@@ -618,6 +625,7 @@ export class RhythmGame extends Scene {
                     this.collide[line][4] = true;
                 }
                 if (!this.collide[line][4]) {
+                    if(k_transform[1][3] > -15)
                     this.notes.beat.draw(context, program_state, k_transform, this.materials.beat);
                     if(k_transform[1][3]==-10){
                         this.kNote = true;
@@ -630,6 +638,7 @@ export class RhythmGame extends Scene {
                     this.collide[line][5] = true;
                 }
                 if (!this.collide[line][5]) {
+                    if(l_transform[1][3] > -15)
                     this.notes.beat.draw(context, program_state, l_transform, this.materials.beat);
                     if(l_transform[1][3]==-10){
                         this.lNote = true;
