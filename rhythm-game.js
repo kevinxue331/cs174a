@@ -41,6 +41,12 @@ export class RhythmGame extends Scene {
         this.j_judge_hit = false;
         this.k_judge_hit = false;
         this.l_judge_hit = false;
+        this.aNote=false;
+        this.sNote=false;
+        this.dNote=false;
+        this.jNote=false;
+        this.kNote=false;
+        this.lNote=false;
 
         this.initial_ls_camera_location = Mat4.look_at(vec3(0, 5, 100), vec3(0, 7.5, 0), vec3(0, 50, 0));
         this.screen_time = 0;
@@ -201,7 +207,26 @@ export class RhythmGame extends Scene {
             0);                    // mip level
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
+    check_if_colliding(b, collider) {
+        // check_if_colliding(): Collision detection function.
+        // DISCLAIMER:  The collision method shown below is not used by anyone; it's just very quick
+        // to code.  Making every collision body an ellipsoid is kind of a hack, and looping
+        // through a list of discrete sphere points to see if the ellipsoids intersect is *really* a
+        // hack (there are perfectly good analytic expressions that can test if two ellipsoids
+        // intersect without discretizing them into points).
+        if (this == b)
+            return false;
+        // Nothing collides with itself.
+        // Convert sphere b to the frame where a is a unit sphere:
+        const T = this.inverse.times(b.drawn_location, this.temp_matrix);
 
+        const {intersect_test, points, leeway} = collider;
+        // For each vertex in that b, shift to the coordinate frame of
+        // a_inv*b.  Check if in that coordinate frame it penetrates
+        // the unit sphere at the origin.  Leave some leeway.
+        return points.arrays.position.some(p =>
+            intersect_test(T.times(p.to4(1)).to3(), leeway));
+    }
     render_scene(context, program_state, shadow_pass, draw_light_source=false, draw_shadow=false) {
         let light_position = this.light_position;
         let light_color = this.light_color;
@@ -413,18 +438,83 @@ export class RhythmGame extends Scene {
             this.notes.l_judge.draw(context, program_state, l_judge_transform, this.materials.judge_hit);
         }
         
-        this.draw_notes(context, program_state);
+        this.draw_notes(context, program_state,a_judge_transform);
+    }
+    hit_a() {
+      if(this.aNote){
+        
+        this.score += 10;
+        this.combo = true;
+        //combo++;
+      }
+      else{
+        this.score -= 5;
+        //this.combo = false;
+        this.combo=false;
+      }
+        
+    }    
+    hit_s(){
+        if(this.sNote){
+            this.score += 10;
+            this.combo = true;
+        }
+        else{
+            this.score -= 5;
+            this.combo=false;
+        }
+    }
+    hit_d(){
+        if(this.dNote){
+            this.score += 10;
+            this.combo = true;
+        }
+        else{
+            this.score -= 5;
+            this.combo=false;
+        }
+    }
+    hit_j(){
+        if(this.jNote){
+            this.score += 10;
+            this.combo = true;
+        }
+        else{
+            this.score -= 5;
+            this.combo=false;
+        }
+    }
+    hit_k(){
+        if(this.kNote){
+            this.score += 10;
+            this.combo = true;
+        }
+        else{
+            this.score -= 5;
+            this.combo=false;
+        }
+    }
+    hit_l(){
+        if(this.lNote){
+            this.score += 10;
+            this.combo = true;
+        }
+        else{
+            this.score -= 5;
+            this.combo=false;
+        }
     }
 
-    draw_notes(context, program_state) { // Draws moving notes
+
+    draw_notes(context, program_state,a_judge_transform) { // Draws moving notes
         let a = this.progress;
         this.progress -= 0.5;
         
         if (this.progress % 25 == 0) { // for testing
-            this.score++;
-            this.combo ^= 1;
+            //this.score++;
+            //this.combo ^= 1;
         }
-
+        //console.log(this.notes);
         /*
         if (this.progress == -400) { // for testing -- so don't have to wait long LOL
             this.progress = 0;
@@ -457,7 +547,7 @@ export class RhythmGame extends Scene {
         // Notes
         const moveup = (a, line) => {
             let range =  -15 * (line + 1) - this.range;
-            console.log(range);
+          //  console.log(range);
             a_transform = Mat4.translation(0, 5, 0).times(a_transform);
             s_transform = Mat4.translation(0, 5, 0).times(s_transform);
             d_transform = Mat4.translation(0, 5, 0).times(d_transform);
@@ -468,8 +558,17 @@ export class RhythmGame extends Scene {
                 if (a_transform[1][3] < range) { // y < -15.1 
                     this.collide[line][0] = true;
                 }
+                
                 if (!this.collide[line][0]) {
                     this.notes.beat.draw(context, program_state, a_transform, this.materials.beat);
+                    //console.log(a_transform);
+                    //console.log(a_judge_transform);
+                    //console.log(this.notes.a_judge);
+                    if(a_transform[1][3]==-10){
+                        this.aNote = true;
+                        setTimeout(() => { this.aNote = false; }, 500);
+                    }
+                    //console.log(this.aNote);
                 }
             }
             if (a[1] == 1) {
@@ -478,6 +577,10 @@ export class RhythmGame extends Scene {
                 }
                 if (!this.collide[line][1]) {
                     this.notes.beat.draw(context, program_state, s_transform, this.materials.beat);
+                    if(s_transform[1][3]==-10){
+                        this.sNote = true;
+                        setTimeout(() => { this.sNote = false; }, 500);
+                    }
                 }
             }
             if (a[2] == 1) {
@@ -486,6 +589,10 @@ export class RhythmGame extends Scene {
                 }
                 if (!this.collide[line][2]) {
                     this.notes.beat.draw(context, program_state, d_transform, this.materials.beat);
+                    if(d_transform[1][3]==-10){
+                        this.dNote = true;
+                        setTimeout(() => { this.dNote = false; }, 500);
+                    }
                 }
             }
             if (a[3] == 1) {
@@ -494,6 +601,10 @@ export class RhythmGame extends Scene {
                 }
                 if (!this.collide[line][3]) {
                     this.notes.beat.draw(context, program_state, j_transform, this.materials.beat);
+                    if(j_transform[1][3]==-10){
+                        this.jNote = true;
+                        setTimeout(() => { this.jNote = false; }, 500);
+                    }
                 }
             }
             if (a[4] == 1) {
@@ -502,6 +613,10 @@ export class RhythmGame extends Scene {
                 }
                 if (!this.collide[line][4]) {
                     this.notes.beat.draw(context, program_state, k_transform, this.materials.beat);
+                    if(k_transform[1][3]==-10){
+                        this.kNote = true;
+                        setTimeout(() => { this.kNote = false; }, 500);
+                    }
                 }
             }
             if (a[5] == 1) {
@@ -510,8 +625,13 @@ export class RhythmGame extends Scene {
                 }
                 if (!this.collide[line][5]) {
                     this.notes.beat.draw(context, program_state, l_transform, this.materials.beat);
+                    if(l_transform[1][3]==-10){
+                        this.lNote = true;
+                        setTimeout(() => { this.lNote = false; }, 500);
+                    }
                 }
             }
+            //console.log(this.notes.beat);
         }
         
         // Load correct beatmap
@@ -525,7 +645,7 @@ export class RhythmGame extends Scene {
         let tmp = [0, 0, 0, 0, 0, 0];
         for (let i = 0; i < map.length; i++) {
             tmp = map[i];
-            moveup(tmp, i);
+            moveup(tmp, i,a_judge_transform);
         }
     }
 
@@ -542,7 +662,7 @@ export class RhythmGame extends Scene {
 
             var source = document.getElementById("audio");
             var pause = source.paused;
-            console.log(pause);
+            //console.log(pause);
             if (pause) {
                 if (this.beatmap == 1) {
                     source.src = "./assets/klee.mp3";
@@ -620,31 +740,37 @@ export class RhythmGame extends Scene {
         this.key_triggered_button("Hit RED", ["a"], () => {
             this.a_judge_hit = true;
             setTimeout(() => { this.a_judge_hit = false; }, 45);
+            this.hit_a();
         });
         this.new_line();
         this.key_triggered_button("Hit ORANGE", ["s"], () => {
             this.s_judge_hit = true;
             setTimeout(() => { this.s_judge_hit = false; }, 45);
+            this.hit_s();
         });
         this.new_line();
         this.key_triggered_button("Hit YELLOW", ["d"], () => {
             this.d_judge_hit = true;
             setTimeout(() => { this.d_judge_hit = false; }, 45);
+            this.hit_d();
         });
         this.new_line();
         this.key_triggered_button("Hit GREEN", ["j"], () => {
             this.j_judge_hit = true;
             setTimeout(() => { this.j_judge_hit = false; }, 45);
+            this.hit_j();
         });
         this.new_line();
         this.key_triggered_button("Hit BLUE", ["k"], () => {
             this.k_judge_hit = true;
             setTimeout(() => { this.k_judge_hit = false; }, 45);
+            this.hit_k();
         });
         this.new_line();
         this.key_triggered_button("Hit PURPLE", ["l"], () => {
             this.l_judge_hit = true;
             setTimeout(() => { this.l_judge_hit = false; }, 45);
+            this.hit_l();
         });
     }
 }
