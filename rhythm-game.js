@@ -448,6 +448,7 @@ export class RhythmGame extends Scene {
         //combo++;
       }
       else{
+        if(this.score>0)
         this.score -= 5;
         //this.combo = false;
         this.combo=false;
@@ -460,6 +461,7 @@ export class RhythmGame extends Scene {
             this.combo = true;
         }
         else{
+            if(this.score>0)
             this.score -= 5;
             this.combo=false;
         }
@@ -470,6 +472,7 @@ export class RhythmGame extends Scene {
             this.combo = true;
         }
         else{
+            if(this.score>0)
             this.score -= 5;
             this.combo=false;
         }
@@ -480,6 +483,7 @@ export class RhythmGame extends Scene {
             this.combo = true;
         }
         else{
+            if(this.score>0)
             this.score -= 5;
             this.combo=false;
         }
@@ -490,6 +494,7 @@ export class RhythmGame extends Scene {
             this.combo = true;
         }
         else{
+            if(this.score>0)
             this.score -= 5;
             this.combo=false;
         }
@@ -500,6 +505,7 @@ export class RhythmGame extends Scene {
             this.combo = true;
         }
         else{
+            if(this.score>0)
             this.score -= 5;
             this.combo=false;
         }
