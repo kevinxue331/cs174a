@@ -84,9 +84,27 @@ export class RhythmGame extends Scene {
             color_texture: null,
             light_depth_texture: null
         })
+        this.floorA = new Material(new Shadow_Textured_Phong_Shader(1), {
+            color: color(0.6, 0.4, 0.2, 1), ambient: .3, diffusivity: 0.6, specularity: 0.4, smoothness: 64,
+            color_texture: null,
+            light_depth_texture: null
+        })
+        this.floorB = new Material(new Shadow_Textured_Phong_Shader(1), {
+            //color: color(0, 0.3, 0.0, 1), ambient: .3, diffusivity: 0.6, specularity: 0.4, smoothness: 64,
+            color: color(1, 1, 1, 1), ambient: .3, diffusivity: 0.6, specularity: 0.4, smoothness: 64,
+            color_texture: null,
+
+            light_depth_texture: null
+        })
         
         this.pure = new Material(new Color_Phong_Shader(), { // For the first pass
         })
+        this.pureA = new Material(new Color_Phong_Shader(), { 
+            color: color(0.6, 0.4, 0.2, 1), // RGB values for brown
+        });
+        this.pureB = new Material(new Color_Phong_Shader(), { 
+            //color: color(0, 0.3, 0, 1), // RGB values for brown
+        });
 
         this.light_src = new Material(new defs.Phong_Shader(), {
             color: color(1, 1, 1, 1), ambient: 1, diffusivity: 0, specularity: 0
@@ -268,101 +286,53 @@ export class RhythmGame extends Scene {
         }
 
         // DRAW MODELS HERE !!!! /////////////////////////////////////////////////////////////////
-        let model_trans_ball_0 = Mat4.translation(0, 1, 0);
+        //let model_trans_ball_0 = Mat4.translation(0, 1, 0);
         let model_trans_floor = Mat4.scale(16, 0.1, 10);
         let model_trans_wall_1 = Mat4.translation(-16, 0.5 - 0.1, 0).times(Mat4.scale(0.1, 0.5, 10));
         let model_trans_wall_2 = Mat4.translation(+16, 0.5 - 0.1, 0).times(Mat4.scale(0.1, 0.5, 10));
         let model_trans_wall_3 = Mat4.translation(0, 0.5 - 0.1, -10).times(Mat4.scale(16, 0.5, 0.33));
         let pillar_transform = Mat4.identity().times(Mat4.translation(0, 1, 0)).times(Mat4.scale(0.2, 0.2, 0.2)).times(Mat4.translation(-20, -2, -10)).times(Mat4.scale(1.2, 20, 1));
         let roof_transform = Mat4.identity().times(Mat4.translation(0, 1, 0)).times(Mat4.scale(0.2, 0.2, 0.2)).times(Mat4.translation(11.5, 19, -10)).times(Mat4.scale(35, 1.2, 1));
+        let roof_transform2 = Mat4.identity().times(Mat4.translation(0, 1, 0)).times(Mat4.scale(0.2, 0.2, 0.2)).times(Mat4.translation(-20, 19, -20)).times(Mat4.scale(1.2, 1.2, 10));
         let net1_transform = Mat4.identity().times(Mat4.translation(0, 1, 0)).times(Mat4.scale(0.2, 0.2, 0.2)).times(Mat4.translation(0,-20,-10)).times(Mat4.rotation(Math.PI/3,0,0,1)).times(Mat4.scale(0.1, 16, 0.1)).times(Mat4.translation(0,0.4,0));
         let net2_transform = Mat4.identity().times(Mat4.translation(0, 1, 0)).times(Mat4.scale(0.2, 0.2, 0.2)).times(Mat4.translation(-20,0,-10)).times(Mat4.rotation(Math.PI/6,0,0,-1)).times(Mat4.scale(0.1, 16, 0.1)).times(Mat4.translation(0,0.4,0));
         // ground
-        this.shapes.cube.draw(context, program_state, model_trans_floor, shadow_pass? this.floor : this.pure);
+        this.shapes.cube.draw(context, program_state, model_trans_floor, shadow_pass? this.floorB : this.pureB);
         this.shapes.cube.draw(context, program_state, model_trans_wall_1, shadow_pass? this.floor : this.pure);
         this.shapes.cube.draw(context, program_state, model_trans_wall_2, shadow_pass? this.floor : this.pure);
         this.shapes.cube.draw(context, program_state, model_trans_wall_3, shadow_pass? this.floor : this.pure);
         // ball
-        this.shapes.sphere.draw(context, program_state, model_trans_ball_0, shadow_pass? this.floor : this.pure);
+       // this.shapes.sphere.draw(context, program_state, model_trans_ball_0, shadow_pass? this.floor : this.pure);
         // temple
-        // front pillars
-        this.shapes.cube.draw(context, program_state, pillar_transform, shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(4, 0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(24, 0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(28, 0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(48, 0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(52, 0,0)), shadow_pass? this.floor : this.pure);
+        // front pillars 
+        this.shapes.cube.draw(context, program_state, pillar_transform, shadow_pass? this.floorA : this.pureA);
+        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(4, 0,0)), shadow_pass? this.floorA : this.pureA);
+        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(24, 0,0)), shadow_pass? this.floorA : this.pureA);
+        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(28, 0,0)), shadow_pass? this.floorA : this.pureA);
+        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(48, 0,0)), shadow_pass? this.floorA : this.pureA);
+        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(52, 0,0)), shadow_pass? this.floorA : this.pureA);
         // back pillars
-        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(0, 0,-20)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(4, 0,-20)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(24, 0,-20)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(28, 0,-20)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(48, 0,-20)), shadow_pass? this.floor : this.pure);
+        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(0, 0,-20)), shadow_pass? this.floorA : this.pureA);
+        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(4, 0,-20)), shadow_pass? this.floorA : this.pureA);
+        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(24, 0,-20)), shadow_pass? this.floorA : this.pureA);
+        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(28, 0,-20)), shadow_pass? this.floorA : this.pureA);
+        this.shapes.cube.draw(context, program_state, pillar_transform.times(Mat4.translation(48, 0,-20)), shadow_pass? this.floorA : this.pureA);
         // roof
-        this.shapes.cube.draw(context, program_state, roof_transform, shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, roof_transform.times(Mat4.translation(0, 0,-20)), shadow_pass? this.floor : this.pure);
-        // net
-        this.shapes.cube.draw(context, program_state, net1_transform, shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(10,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(20,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(30,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(40,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(50,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(60,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(70,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(80,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(90,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(100,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(110,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(120,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(130,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(140,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(150,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(160,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(170,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(180,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(190,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(200,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(210,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(220,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(230,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(240,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(250,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(260,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(270,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(280,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(290,0,0)), shadow_pass? this.floor : this.pure);
+        this.shapes.cube.draw(context, program_state, roof_transform, shadow_pass? this.floorA : this.pureA);
+        this.shapes.cube.draw(context, program_state, roof_transform.times(Mat4.translation(0, 0,-20)), shadow_pass? this.floorA : this.pureA);
+        this.shapes.cube.draw(context, program_state, roof_transform2, shadow_pass? this.floorA : this.pureA);
+        this.shapes.cube.draw(context, program_state, roof_transform2.times(Mat4.translation(50, 0,0)), shadow_pass? this.floorA : this.pureA);
+        // netA
+        this.shapes.cube.draw(context, program_state, net1_transform, shadow_pass? this.floorA : this.pureA);
+        for(let i = 0; i < 300; i=i+10){
+            this.shapes.cube.draw(context, program_state, net1_transform.times(Mat4.translation(10+i,0,0)), shadow_pass? this.floorA : this.pureA);
+        }
+        
         // cross hatched net
-        this.shapes.cube.draw(context, program_state, net2_transform, shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(10,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(20,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(30,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(40,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(50,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(60,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(70,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(80,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(90,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(100,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(110,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(120,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(130,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(140,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(150,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(160,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(170,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(180,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(190,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(200,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(210,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(220,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(230,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(240,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(250,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(260,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(270,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(280,0,0)), shadow_pass? this.floor : this.pure);
-        this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(290,0,0)), shadow_pass? this.floor : this.pure);
+        for(let v = 0; v < 300; v=v+10){
+            this.shapes.cube.draw(context, program_state, net2_transform.times(Mat4.translation(10+v,0,0)), shadow_pass? this.floorA : this.pureA);
+        }
+        
     }
 
     loading_screen(context, program_state) {
