@@ -80,7 +80,7 @@ export class RhythmGame extends Scene {
         };
 
         this.floor = new Material(new Shadow_Textured_Phong_Shader(1), {
-            color: color(1, 1, 1, 1), ambient: .3, diffusivity: 0.6, specularity: 0.4, smoothness: 64,
+            color: color(167/256, 205/256, 242/256, 1), ambient: .3, diffusivity: 0.6, specularity: 0.4, smoothness: 64,
             color_texture: null,
             light_depth_texture: null
         })
@@ -91,7 +91,7 @@ export class RhythmGame extends Scene {
         })
         this.floorB = new Material(new Shadow_Textured_Phong_Shader(1), {
             //color: color(0, 0.3, 0.0, 1), ambient: .3, diffusivity: 0.6, specularity: 0.4, smoothness: 64,
-            color: color(1, 1, 1, 1), ambient: .3, diffusivity: 0.6, specularity: 0.4, smoothness: 64,
+            color: color(193/256, 236/256, 200/256, 1), ambient: .3, diffusivity: 0.6, specularity: 0.4, smoothness: 64,
             color_texture: null,
 
             light_depth_texture: null
@@ -287,10 +287,10 @@ export class RhythmGame extends Scene {
 
         // DRAW MODELS HERE !!!! /////////////////////////////////////////////////////////////////
         //let model_trans_ball_0 = Mat4.translation(0, 1, 0);
-        let model_trans_floor = Mat4.scale(16, 0.1, 10);
-        let model_trans_wall_1 = Mat4.translation(-16, 0.5 - 0.1, 0).times(Mat4.scale(0.1, 0.5, 10));
-        let model_trans_wall_2 = Mat4.translation(+16, 0.5 - 0.1, 0).times(Mat4.scale(0.1, 0.5, 10));
-        let model_trans_wall_3 = Mat4.translation(0, 0.5 - 0.1, -10).times(Mat4.scale(16, 0.5, 0.33));
+        let model_trans_floor = Mat4.translation( + 3, 0.2, 0 - 1).times(Mat4.scale(16, 0.1, 10 - 1));
+        let model_trans_wall_1 = Mat4.translation(-16 + 3, 0.5 - 0, 0 - 1.5).times(Mat4.scale(0.1, 0.5, 10 - 0.5));
+        let model_trans_wall_2 = Mat4.translation(+16 + 3, 0.5 - 0, 0  - 1.5).times(Mat4.scale(0.1, 0.5, 10 -0.5 ));
+        let model_trans_wall_3 = Mat4.translation(0 + 3, 0.5 - 0, -10 - 1).times(Mat4.scale(16, 0.5, 0.33));
         let pillar_transform = Mat4.identity().times(Mat4.translation(0, 1, 0)).times(Mat4.scale(0.2, 0.2, 0.2)).times(Mat4.translation(-20, -2, -10)).times(Mat4.scale(1.2, 20, 1));
         let roof_transform = Mat4.identity().times(Mat4.translation(0, 1, 0)).times(Mat4.scale(0.2, 0.2, 0.2)).times(Mat4.translation(11.5, 19, -10)).times(Mat4.scale(35, 1.2, 1));
         let roof_transform2 = Mat4.identity().times(Mat4.translation(0, 1, 0)).times(Mat4.scale(0.2, 0.2, 0.2)).times(Mat4.translation(-20, 19, -20)).times(Mat4.scale(1.2, 1.2, 10));
